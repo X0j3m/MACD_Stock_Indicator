@@ -2,57 +2,65 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Wczytanie danych z pliku CSV
-data = pd.read_csv('dane.csv')
+def load_data(filename):
+    df = pd.read_csv(filename, delimiter=',', decimal=',', dtype=str)  # Wczytaj wszystko jako stringi
+    df = df[::-1]  # Odwrócenie kolejności, aby dane były od najstarszych do najnowszych
+    df["Ostatnio"] = df["Ostatnio"].str.replace(',', '.').astype(float)  # Zamiana przecinków na kropki i konwersja
+    return df
 
-# Sprawdzenie pierwszych kilku wierszy w celu weryfikacji danych
-print("Pierwsze wiersze danych:")
-print(data.head())
 
-# Zmiana formatu daty
-data['Data'] = pd.to_datetime(data['Data'], format='%d.%m.%Y')
+# Obliczanie MACD i Signal
+def calculate_macd(df):
+    short_ema = df['Ostatnio'].ewm(span=12, adjust=False).mean()
+    long_ema = df['Ostatnio'].ewm(span=26, adjust=False).mean()
+    df['MACD'] = short_ema - long_ema
+    df['Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
 
-# Zamiana przecinków na kropki w kolumnach liczbowych
-data['Ostatnio'] = data['Ostatnio'].str.replace(',', '.').astype(float)
+# Znalezienie punktów kupna i sprzedaży
+def find_signals(df):
+    buy_signals = [None]  # Pierwszy element brak sygnału
+    sell_signals = [None]  # Pierwszy element brak sygnału
+    
+    for i in range(1, len(df)):
+        if df['MACD'][i] > df['Signal'][i] and df['MACD'][i - 1] <= df['Signal'][i - 1]:
+            buy_signals.append(df['Ostatnio'][i])
+            sell_signals.append(None)
+        elif df['MACD'][i] < df['Signal'][i] and df['MACD'][i - 1] >= df['Signal'][i - 1]:
+            sell_signals.append(df['Ostatnio'][i])
+            buy_signals.append(None)
+        else:
+            buy_signals.append(None)
+            sell_signals.append(None)
 
-# Funkcja do usuwania jednostek i konwersji kolumny "Wol." na wartości numeryczne
-def convert_volume(volume):
-    if 'M' in volume:
-        return float(volume.replace('M', '').replace(',', '.')) * 1e6
-    elif 'K' in volume:
-        return float(volume.replace('K', '').replace(',', '.')) * 1e3
-    return float(volume.replace(',', '.'))
+    df['Buy'] = buy_signals
+    df['Sell'] = sell_signals
 
-# Przekształcenie kolumny "Wol." na wartości numeryczne
-data['Wol.'] = data['Wol.'].apply(convert_volume)
 
-# Sprawdzamy, czy kolumna "Ostatnio" zawiera liczby
-print("\nPodstawowe informacje o danych:")
-print(data[['Data', 'Ostatnio', 'Wol.']].head())
+# Rysowanie wykresu MACD i cen akcji
+def plot_macd_and_prices(df):
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(12, 8), sharex=True)
+    
+    # Wykres cen akcji
+    ax1.plot(df['Data'], df['Ostatnio'], label='Cena', color='blue')
+    ax1.scatter(df['Data'], df['Buy'], label='Kupno', marker='^', color='green', alpha=1)
+    ax1.scatter(df['Data'], df['Sell'], label='Sprzedaż', marker='v', color='red', alpha=1)
+    ax1.legend()
+    ax1.set_title('Notowania giełdowe')
+    
+    # Wykres MACD
+    ax2.plot(df['Data'], df['MACD'], label='MACD', color='black')
+    ax2.plot(df['Data'], df['Signal'], label='Signal', color='red')
+    ax2.legend()
+    ax2.set_title('MACD i Signal')
+    
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
 
-# Obliczenie MACD (12-dniowa EMA - 26-dniowa EMA)
-data['EMA12'] = data['Ostatnio'].ewm(span=12, adjust=False).mean()
-data['EMA26'] = data['Ostatnio'].ewm(span=26, adjust=False).mean()
-
-# Obliczenie MACD jako różnica EMA12 i EMA26
-data['MACD'] = data['EMA12'] - data['EMA26']
-
-# Obliczenie linii SIGNAL (9-dniowa EMA MACD)
-data['SIGNAL'] = data['MACD'].ewm(span=9, adjust=False).mean()
-
-# Sprawdzamy, czy MACD i SIGNAL zostały poprawnie obliczone
-print("\nMACD i SIGNAL:")
-print(data[['Data', 'MACD', 'SIGNAL']].head())
-
-# Rysowanie wykresu
-plt.figure(figsize=(12, 6))
-plt.plot(data['Data'], data['MACD'], label='MACD', color='blue')
-plt.plot(data['Data'], data['SIGNAL'], label='SIGNAL', color='red')
-plt.fill_between(data['Data'], data['MACD'] - data['SIGNAL'], color='gray', alpha=0.3)
-plt.title('Wykres MACD i SIGNAL')
-plt.xlabel('Data')
-plt.ylabel('Wartość')
-plt.legend(loc='best')
-plt.grid(True)
-plt.xticks(rotation=45)
-plt.tight_layout()
-plt.show()
+# Główna funkcja
+if __name__ == "__main__":
+    filename = "Historyczne ceny PZU.csv"  # Zmień na właściwą nazwę pliku
+    df = load_data(filename)
+    calculate_macd(df)
+    find_signals(df)
+    plot_macd_and_prices(df)
