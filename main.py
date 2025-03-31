@@ -76,8 +76,8 @@ def create_macd_plot(y1_axis: np.ndarray, y2_axis: np.ndarray, x_axis: np.ndarra
 
     plt.figure(figsize=(16, 9), dpi=100)
 
-    plt.plot(x_axis, y1_axis, linestyle="-", color="red", label="SIGNAL", linewidth=line_width)
-    plt.plot(x_axis, y2_axis, linestyle="-", color="blue", label="MACD", linewidth=line_width)
+    plt.plot(x_axis, y1_axis, linestyle="-", color="blue", label="MACD", linewidth=line_width)
+    plt.plot(x_axis, y2_axis, linestyle="-", color="red", label="SIGNAL", linewidth=line_width)
 
     plot_buy_sell_signals(buy_sell_signals, macd_buy_sell_points, False, False)
 
@@ -145,9 +145,9 @@ def find_buy_sell_points(macd: np.ndarray, signal: np.ndarray, x_axis: np.ndarra
                     x_axis[i] - x_axis[i - 1])
             # Rozpoznanie kierunku przecięcia (od góry/od dołu)
             if macd[i - 1] > signal[i - 1] and macd[i] < signal[i]:
-                buy_sell_signals.append(Signal.SELL)
-            if macd[i - 1] < signal[i - 1] and macd[i] > signal[i]:
                 buy_sell_signals.append(Signal.BUY)
+            if macd[i - 1] < signal[i - 1] and macd[i] > signal[i]:
+                buy_sell_signals.append(Signal.SELL)
             cross_points.append((x_intersection, y_intersection))
     buy_sell_signals = np.array(buy_sell_signals)
     cross_points = np.array(cross_points)
